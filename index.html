@@ -1,6 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Portfolio | Google Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #f4f4f9; }
+        #user-profile { margin-top: 20px; text-align: center; display: none; }
+        #user-profile img { border-radius: 50%; width: 100px; border: 3px solid #4285F4; }
+    </style>
+</head>
+<body>
+
+    <h2>Portfolio Login</h2>
+    
+    <div id="g_id_onload"
+         data-client_id="1082028242267-kjkiu17l71gdta83vhn4co80c43fksho.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse"
+         data-auto_prompt="false">
+    </div>
+    <div class="g_id_signin" data-type="standard"></div>
+
+    <div id="user-profile">
+        <img id="user-pic" src="" alt="Profile Picture">
+        <h3 id="user-name"></h3>
+        <p id="user-email"></p>
+        <button onclick="logout()">Sign Out</button>
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <script>
+        // Function to decode the Google JWT Token
+        function parseJwt(token) {
+            var base64Url = token.split('.')[1];
+            var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            var jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            return JSON.parse(jsonPayload);
+        }
+
+        function handleCredentialResponse(response) {
+            // Decode the user data from the response
+            const responsePayload = parseJwt(response.credential);
+
+            // Hide the login button and show profile info
+            document.querySelector(".g_id_signin").style.display = "none";
+            const profile = document.getElementById("user-profile");
+            profile.style.display = "block";
+
+            // Update UI with user details
+            document.getElementById("user-name").innerText = "Welcome, " + responsePayload.name;
+            document.getElementById("user-email").innerText = responsePayload.email;
+            document.getElementById("user-pic").src = responsePayload.picture;
+        }
+
+        function logout() {
+            google.accounts.id.disableAutoSelect();
+            location.reload(); // Refresh the page to reset state
+        }
+    </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MY PORTFOLIO - SECURE PRO</title>
@@ -294,28 +359,22 @@
     </div>
 
     <script>
-        // --- ADDED: GOOGLE DRIVE SYNC VARIABLES & LOGIC ---
-        // REPLACE THIS WITH YOUR ACTUAL CLIENT ID FROM GOOGLE CLOUD CONSOLE
-        const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com'; 
+        const GOOGLE_CLIENT_ID = '1082028242267-kjkiu17l71gdta83vhn4co80c43fksho.apps.googleusercontent.com'; 
         let tokenClient;
         let gapiAccessToken = null;
         let driveFileId = null;
         let isSyncing = false;
         const SYNC_FILE_NAME = 'mp_master_db.json';
 
-        // Initialize Google Identity Services
         window.onload = () => {
-            // Load existing standard flow
             initApp();
-            
-            // Init Google Token Client
             if(window.google) {
                 tokenClient = google.accounts.oauth2.initTokenClient({
                     client_id: GOOGLE_CLIENT_ID,
                     scope: 'https://www.googleapis.com/auth/drive.appdata',
-                    callback: async (tokenResponse) => {
-                        if (tokenResponse && tokenResponse.access_token) {
-                            gapiAccessToken = tokenResponse.access_token;
+                    callback: async (resp) => {
+                        if (resp && resp.access_token) {
+                            gapiAccessToken = resp.access_token;
                             document.getElementById('btn-google-auth').innerText = "Account Linked";
                             document.getElementById('btn-google-auth').style.background = "var(--success)";
                             await performInitialSync();
@@ -326,14 +385,13 @@
         };
 
         function handleGoogleAuth() {
-            if (!tokenClient) return alert("Google scripts failed to load. Check connection.");
+            if (!tokenClient) return alert("Google script not loaded.");
             tokenClient.requestAccessToken({ prompt: 'consent' });
         }
 
         async function performInitialSync() {
-            updateSyncStatus("Checking cloud backup...");
+            updateSyncStatus("Checking Cloud...");
             try {
-                // Search for existing file in hidden AppData folder
                 const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${SYNC_FILE_NAME}'`, {
                     headers: { Authorization: `Bearer ${gapiAccessToken}` }
                 });
@@ -341,82 +399,48 @@
                 
                 if (searchData.files && searchData.files.length > 0) {
                     driveFileId = searchData.files[0].id;
-                    updateSyncStatus("Downloading cloud data...");
-                    
-                    // Download file
                     const dlRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
                         headers: { Authorization: `Bearer ${gapiAccessToken}` }
                     });
                     const cloudDb = await dlRes.json();
-                    
-                    // Overwrite local with cloud (to satisfy "sync in new device" requirement)
                     db = cloudDb;
                     saveLocal(); 
                     refresh();
-                    updateSyncStatus("Sync Complete ✅");
+                    updateSyncStatus("Cloud Sync Active ✅");
                 } else {
-                    // No cloud backup found, upload current local data to cloud
-                    updateSyncStatus("Creating cloud backup...");
                     await uploadToDrive(true);
                 }
-            } catch (err) {
-                console.error(err);
-                updateSyncStatus("Sync failed. Check console.");
-            }
+            } catch (err) { updateSyncStatus("Sync failed"); }
         }
 
         async function uploadToDrive(isNew = false) {
             if (!gapiAccessToken) return;
-            isSyncing = true;
-            updateSyncStatus("Syncing to cloud...");
-            
             const fileContent = JSON.stringify(db);
             const metadata = { name: SYNC_FILE_NAME, parents: ['appDataFolder'] };
 
             try {
-                let url, method, body;
-                
                 if (isNew || !driveFileId) {
-                    // Create new file (Multipart upload)
-                    url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-                    method = 'POST';
-                    const boundary = '-------314159265358979323846';
+                    const boundary = '-------314159';
                     const delimiter = "\r\n--" + boundary + "\r\n";
                     const close_delim = "\r\n--" + boundary + "--";
-
-                    body = delimiter +
-                        'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
-                        delimiter +
-                        'Content-Type: application/json\r\n\r\n' + fileContent +
-                        close_delim;
+                    const body = delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) + delimiter + 'Content-Type: application/json\r\n\r\n' + fileContent + close_delim;
                         
-                    const res = await fetch(url, {
-                        method: method,
-                        headers: {
-                            Authorization: `Bearer ${gapiAccessToken}`,
-                            'Content-Type': `multipart/related; boundary=${boundary}`
-                        },
+                    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${gapiAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
                         body: body
                     });
                     const data = await res.json();
                     driveFileId = data.id;
                 } else {
-                    // Update existing file
-                    url = `https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`;
-                    method = 'PATCH';
-                    await fetch(url, {
-                        method: method,
+                    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+                        method: 'PATCH',
                         headers: { Authorization: `Bearer ${gapiAccessToken}`, 'Content-Type': 'application/json' },
                         body: fileContent
                     });
                 }
                 updateSyncStatus("Cloud Sync Active ✅");
-            } catch (e) {
-                console.error("Upload error:", e);
-                updateSyncStatus("Sync error");
-            } finally {
-                isSyncing = false;
-            }
+            } catch (e) { updateSyncStatus("Sync error"); }
         }
 
         function updateSyncStatus(msg) {
@@ -424,8 +448,7 @@
             document.getElementById('sync-indicator').innerText = gapiAccessToken ? `(☁️ ${msg})` : "";
         }
 
-        // --- END OF GOOGLE DRIVE LOGIC ---
-
+        // DATABASE AND CORE LOGIC
         let db = JSON.parse(localStorage.getItem('mp_master_db')) || {
             user: { name: "MY PORTFOLIO", demats: [] },
             cos: [],
@@ -438,36 +461,29 @@
         let missingCos = new Set();
         let missingDemats = new Set();
 
-        // MODIFIED: Original save function now saves locally AND triggers Google Drive upload if linked
         const saveLocal = () => localStorage.setItem('mp_master_db', JSON.stringify(db));
         
         let syncTimeout;
         const save = () => {
             saveLocal();
-            // Debounce the drive upload so it doesn't spam the API on quick edits
             if (gapiAccessToken) {
                 clearTimeout(syncTimeout);
                 syncTimeout = setTimeout(() => { uploadToDrive(false); }, 2000); 
             }
         };
 
-        // Extracted original onload logic into a named function
         function initApp() {
             if(db.settings.locked) { document.body.innerHTML = "<h1 style='color:red; text-align:center; padding-top:100px;'>SYSTEM LOCKED</h1>"; return; }
             document.getElementById('s-pass-on').checked = db.settings.passOn;
             document.getElementById('s-high-on').checked = db.settings.highOn || false;
             if(db.settings.passOn) document.getElementById('pass-fields').classList.remove('hidden');
-            
             if(db.settings.bg) document.body.style.backgroundImage = `url(${db.settings.bg})`;
             applyTheme(db.settings.theme);
-            
-            if(db.settings.passOn && db.settings.pass !== "") showLogin();
-            else showApp();
-            
+            if(db.settings.passOn && db.settings.pass !== "") showLogin(); else showApp();
             refresh();
         }
 
-        function showLogin() { document.getElementById('login-overlay').style.display = 'flex'; document.getElementById('app-container').style.display = 'none'; }
+        function showLogin() { document.getElementById('login-overlay').style.display = 'flex'; }
         function showApp() { document.getElementById('login-overlay').style.display = 'none'; document.getElementById('app-container').style.display = 'block'; }
 
         function validateLogin() {
@@ -484,7 +500,7 @@
             const turnOn = document.getElementById('s-pass-on').checked;
             const nP = document.getElementById('new-pass').value;
             const cP = document.getElementById('conf-pass').value;
-            if(turnOn && db.settings.pass === "" && nP === "") return alert("Please set a password!");
+            if(turnOn && db.settings.pass === "" && nP === "") return alert("Set a password!");
             if(nP !== "" && nP !== cP) return alert("Passwords do not match!");
             if(nP !== "") db.settings.pass = nP;
             db.settings.passOn = turnOn;
@@ -497,20 +513,11 @@
         function setBG() {
             const file = document.getElementById('s-bg-file').files[0];
             const reader = new FileReader();
-            reader.onload = e => {
-                db.settings.bg = e.target.result;
-                document.body.style.backgroundImage = `url(${e.target.result})`;
-                save();
-            };
+            reader.onload = e => { db.settings.bg = e.target.result; document.body.style.backgroundImage = `url(${e.target.result})`; save(); };
             if(file) reader.readAsDataURL(file);
         }
 
-        function removeBG() {
-            db.settings.bg = '';
-            document.body.style.backgroundImage = '';
-            save();
-            document.getElementById('s-bg-file').value = "";
-        }
+        function removeBG() { db.settings.bg = ''; document.body.style.backgroundImage = ''; save(); }
 
         function refresh() {
             const dHtml = db.user.demats.map(d => `<option value="${d.acc}">${d.acc}</option>`).join('');
@@ -521,180 +528,80 @@
 
         function renderTables() {
             document.querySelector('#a-table tbody').innerHTML = db.trades.map((t, i) => `
-                <tr>
-                    <td><input type="checkbox" class="trade-tick" data-index="${i}"></td>
-                    <td>${t.order || '-'}</td><td>${t.date}</td><td>${t.type}</td><td>${t.co}</td><td>${t.qty}</td>
-                    <td>${(t.price || 0).toFixed(2)}</td><td>${t.val}</td><td>${t.demat}</td><td>${t.remarks || ''}</td>
-                </tr>`).join('');
-            
-            const hold = {};
-            let totalInvest = 0;
+                <tr><td><input type="checkbox" class="trade-tick" data-index="${i}"></td><td>${t.order || '-'}</td><td>${t.date}</td><td>${t.type}</td><td>${t.co}</td><td>${t.qty}</td><td>${(t.price || 0).toFixed(2)}</td><td>${t.val}</td><td>${t.demat}</td><td>${t.remarks || ''}</td></tr>`).join('');
+            const hold = {}; let totalInvest = 0;
             db.trades.forEach(t => {
                 if(!hold[t.co]) hold[t.co] = { qty: 0, cost: 0 };
-                if(t.type === 'BUY') { 
-                    hold[t.co].qty += t.qty; 
-                    hold[t.co].cost += t.val; 
-                } else if (t.type === 'SELL') { 
-                    hold[t.co].qty -= t.qty; 
-                    hold[t.co].cost -= t.val; 
-                }
+                if(t.type === 'BUY') { hold[t.co].qty += t.qty; hold[t.co].cost += t.val; } 
+                else { hold[t.co].qty -= t.qty; hold[t.co].cost -= t.val; }
             });
-            
             let pRows = "";
             Object.keys(hold).forEach(c => {
                 if(hold[c].qty > 0) {
                     totalInvest += hold[c].cost;
-                    let avgPrice = hold[c].cost / hold[c].qty;
-                    pRows += `<tr><td>${c}</td><td>${hold[c].qty}</td><td>${hold[c].cost.toFixed(2)}</td><td>${avgPrice.toFixed(2)}</td></tr>`;
+                    pRows += `<tr><td>${c}</td><td>${hold[c].qty}</td><td>${hold[c].cost.toFixed(2)}</td><td>${(hold[c].cost / hold[c].qty).toFixed(2)}</td></tr>`;
                 }
             });
             document.querySelector('#p-table tbody').innerHTML = pRows;
             document.getElementById('total-invest-val').innerText = "Total Invested: " + totalInvest.toLocaleString('en-IN', {minimumFractionDigits:2});
-
             document.querySelector('#demat-table tbody').innerHTML = db.user.demats.map((d, i) => `<tr><td>${d.broker}</td><td>${d.acc}</td><td><button onclick="delDemat(${i})" class="del-btn">Del</button></td></tr>`).join('');
             document.querySelector('#co-table tbody').innerHTML = db.cos.map((c, i) => `<tr><td>${c}</td><td class="row-actions"><button class="edit-btn" onclick="editCo(${i})">Edit</button><button class="del-btn" onclick="delCo(${i})">Del</button></td></tr>`).join('');
         }
 
-        function toggleAllTicks(master) { document.querySelectorAll('.trade-tick').forEach(cb => cb.checked = master.checked); }
-        function getSelectedIndices() { return Array.from(document.querySelectorAll('.trade-tick:checked')).map(cb => parseInt(cb.dataset.index)); }
-
         function saveTrade() {
-            const t = {
-                type: document.getElementById('t-type').value, demat: document.getElementById('t-demat-select').value,
-                order: document.getElementById('t-orderno').value, date: document.getElementById('t-date').value,
-                co: document.getElementById('t-company').value, qty: parseFloat(document.getElementById('t-qty').value) || 0,
-                price: parseFloat(document.getElementById('t-price').value) || 0, val: parseFloat(document.getElementById('t-value').value) || 0,
-                remarks: document.getElementById('t-remarks').value
-            };
+            const t = { type: document.getElementById('t-type').value, demat: document.getElementById('t-demat-select').value, order: document.getElementById('t-orderno').value, date: document.getElementById('t-date').value, co: document.getElementById('t-company').value, qty: parseFloat(document.getElementById('t-qty').value) || 0, price: parseFloat(document.getElementById('t-price').value) || 0, val: parseFloat(document.getElementById('t-value').value) || 0, remarks: document.getElementById('t-remarks').value };
             if(!t.demat || !t.co || t.qty <= 0) return alert("Fill details.");
-            if(editingTradeIndex > -1) db.trades[editingTradeIndex] = t;
-            else db.trades.push(t);
+            if(editingTradeIndex > -1) db.trades[editingTradeIndex] = t; else db.trades.push(t);
             cancelTradeEdit(); save(); refresh(); alert("Saved");
         }
 
         function editSelectedTrade() {
-            const selected = getSelectedIndices();
-            if(selected.length !== 1) return alert("Select exactly one trade to edit.");
-            const i = selected[0]; const t = db.trades[i]; editingTradeIndex = i;
-            document.getElementById('t-type').value = t.type;
-            document.getElementById('t-demat-select').value = t.demat;
-            document.getElementById('t-orderno').value = t.order;
-            document.getElementById('t-date').value = t.date;
-            document.getElementById('t-company').value = t.co;
-            document.getElementById('t-qty').value = t.qty;
-            document.getElementById('t-price').value = t.price;
-            document.getElementById('t-value').value = t.val;
-            document.getElementById('t-remarks').value = t.remarks || '';
-            document.getElementById('form-title').innerText = "Edit Trade Entry";
-            document.getElementById('btn-save-trade').innerText = "Update Transaction";
-            document.getElementById('btn-cancel-edit').classList.remove('hidden');
-            closeModal('abstractModal');
-            window.scrollTo(0, 0);
+            const sel = Array.from(document.querySelectorAll('.trade-tick:checked'));
+            if(sel.length !== 1) return alert("Select one.");
+            const i = parseInt(sel[0].dataset.index); const t = db.trades[i]; editingTradeIndex = i;
+            document.getElementById('t-type').value = t.type; document.getElementById('t-demat-select').value = t.demat; document.getElementById('t-orderno').value = t.order; document.getElementById('t-date').value = t.date; document.getElementById('t-company').value = t.co; document.getElementById('t-qty').value = t.qty; document.getElementById('t-price').value = t.price; document.getElementById('t-value').value = t.val; document.getElementById('t-remarks').value = t.remarks || '';
+            document.getElementById('form-title').innerText = "Edit Trade"; document.getElementById('btn-save-trade').innerText = "Update Transaction"; document.getElementById('btn-cancel-edit').classList.remove('hidden');
+            closeModal('abstractModal'); window.scrollTo(0, 0);
         }
 
         function deleteSelectedTrades() {
-            const selected = getSelectedIndices().sort((a,b) => b-a);
+            const selected = Array.from(document.querySelectorAll('.trade-tick:checked')).map(cb => parseInt(cb.dataset.index)).sort((a,b) => b-a);
             if(selected.length === 0) return alert("None selected.");
-            if(confirm(`Delete ${selected.length} trade(s)?`)) { selected.forEach(i => db.trades.splice(i, 1)); save(); refresh(); }
+            if(confirm("Delete?")) { selected.forEach(i => db.trades.splice(i, 1)); save(); refresh(); }
         }
 
-        function cancelTradeEdit() {
-            editingTradeIndex = -1;
-            document.getElementById('form-title').innerText = "Trade Entry";
-            document.getElementById('btn-save-trade').innerText = "Save Transaction";
-            document.getElementById('btn-cancel-edit').classList.add('hidden');
-            document.querySelectorAll('#trade-form-card input').forEach(i => i.value = '');
-        }
-
-        function addCo() { const c = document.getElementById('new-co').value; if(c) { db.cos.push(c); save(); refresh(); document.getElementById('new-co').value=''; } }
-        function editCo(i) { const newVal = prompt("Edit Company:", db.cos[i]); if(newVal) { db.cos[i] = newVal; save(); refresh(); } }
-        function delCo(i) { if(confirm("Delete company?")) { db.cos.splice(i,1); save(); refresh(); } }
-
-        function addDemat() { 
-            const b = document.getElementById('u-broker').value; const a = document.getElementById('u-acc').value; 
-            if(b && a) { db.user.demats.push({broker: b, acc: a}); save(); refresh(); document.getElementById('u-broker').value=''; document.getElementById('u-acc').value=''; } 
-        }
+        function cancelTradeEdit() { editingTradeIndex = -1; document.getElementById('form-title').innerText = "Trade Entry"; document.getElementById('btn-save-trade').innerText = "Save Transaction"; document.getElementById('btn-cancel-edit').classList.add('hidden'); document.querySelectorAll('#trade-form-card input').forEach(i => i.value = ''); }
+        function addCo() { const c = document.getElementById('new-co').value; if(c) { db.cos.push(c); save(); refresh(); } }
+        function editCo(i) { const n = prompt("Edit:", db.cos[i]); if(n) { db.cos[i] = n; save(); refresh(); } }
+        function delCo(i) { if(confirm("Del?")) { db.cos.splice(i,1); save(); refresh(); } }
+        function addDemat() { const b = document.getElementById('u-broker').value; const a = document.getElementById('u-acc').value; if(b && a) { db.user.demats.push({broker: b, acc: a}); save(); refresh(); } }
         function delDemat(i) { db.user.demats.splice(i,1); save(); refresh(); }
 
-        function downloadTemplate() {
-            const ws = XLSX.utils.json_to_sheet([{Order: "", Date: "YYYY-MM-DD", Type: "BUY/SELL", Company: "", Qty: "", Price: "", Value: "", Demat: "", Remarks: ""}]);
-            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Template"); XLSX.writeFile(wb, "Trade_Template.xlsx");
-        }
-
-        function handleBulkUpload(event) {
-            const file = event.target.files[0];
+        function downloadTemplate() { const ws = XLSX.utils.json_to_sheet([{Order: "", Date: "YYYY-MM-DD", Type: "BUY/SELL", Company: "", Qty: "", Price: "", Value: "", Demat: "", Remarks: ""}]); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Template"); XLSX.writeFile(wb, "Template.xlsx"); }
+        function handleBulkUpload(e) {
             const reader = new FileReader();
-            reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, {type: 'array'});
-                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+            reader.onload = function(ev) {
+                const data = new Uint8Array(ev.target.result);
+                const rows = XLSX.utils.sheet_to_json(XLSX.read(data, {type: 'array'}).Sheets[XLSX.read(data, {type: 'array'}).SheetNames[0]]);
                 pendingBulkTrades = rows; missingCos.clear(); missingDemats.clear();
-                rows.forEach(r => {
-                    if (r.Company && !db.cos.includes(r.Company)) missingCos.add(r.Company);
-                    if (r.Demat && !db.user.demats.some(d => d.acc == r.Demat)) missingDemats.add(r.Demat);
-                });
-                if (missingCos.size > 0 || missingDemats.size > 0) {
-                    let h = "Missing:";
-                    if(missingCos.size > 0) h += `<br>Co: ${Array.from(missingCos).join(', ')}`;
-                    if(missingDemats.size > 0) h += `<br>Demat: ${Array.from(missingDemats).join(', ')}`;
-                    document.getElementById('missing-list').innerHTML = h;
-                    openModal('autoAddModal');
-                } else processPending();
-                event.target.value = "";
+                rows.forEach(r => { if (r.Company && !db.cos.includes(r.Company)) missingCos.add(r.Company); if (r.Demat && !db.user.demats.some(d => d.acc == r.Demat)) missingDemats.add(r.Demat); });
+                if (missingCos.size > 0 || missingDemats.size > 0) { document.getElementById('missing-list').innerHTML = `Missing Cos: ${Array.from(missingCos).join(', ')} <br> Missing Demats: ${Array.from(missingDemats).join(', ')}`; openModal('autoAddModal'); } else processPending();
             };
-            reader.readAsArrayBuffer(file);
+            reader.readAsArrayBuffer(e.target.files[0]);
         }
-
-        function proceedAutoAdd() {
-            missingCos.forEach(c => db.cos.push(c));
-            missingDemats.forEach(d => db.user.demats.push({broker: "Added", acc: d.toString()}));
-            closeModal('autoAddModal'); processPending();
-        }
-
-        function processPending() {
-            pendingBulkTrades.forEach(r => {
-                if(!r.Company || !r.Demat) return;
-                db.trades.push({
-                    type: (r.Type || 'BUY').toUpperCase(), demat: r.Demat.toString(), order: r.Order || "",
-                    date: r.Date || "", co: r.Company, qty: parseFloat(r.Qty) || 0,
-                    price: parseFloat(r.Price) || 0, val: parseFloat(r.Value) || 0, remarks: r.Remarks || ""
-                });
-            });
-            save(); refresh(); alert("Uploaded");
-        }
-
-        function exportExcel(tid, name) { const wb = XLSX.utils.table_to_book(document.getElementById(tid)); XLSX.writeFile(wb, `${name}_Report.xlsx`); }
+        function proceedAutoAdd() { missingCos.forEach(c => db.cos.push(c)); missingDemats.forEach(d => db.user.demats.push({broker: "Added", acc: d.toString()})); closeModal('autoAddModal'); processPending(); }
+        function processPending() { pendingBulkTrades.forEach(r => { if(r.Company && r.Demat) db.trades.push({ type: (r.Type || 'BUY').toUpperCase(), demat: r.Demat.toString(), order: r.Order || "", date: r.Date || "", co: r.Company, qty: parseFloat(r.Qty) || 0, price: parseFloat(r.Price) || 0, val: parseFloat(r.Value) || 0, remarks: r.Remarks || "" }); }); save(); refresh(); }
+        function exportExcel(tid, name) { XLSX.writeFile(XLSX.utils.table_to_book(document.getElementById(tid)), `${name}.xlsx`); }
         function toggleTheme() { db.settings.theme = db.settings.theme === 'light' ? 'dark' : 'light'; applyTheme(db.settings.theme); save(); }
         function applyTheme(t) { document.body.className = t + '-theme'; }
         function openModal(id) { document.getElementById(id).style.display = 'block'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
         function calcTradeTotal() { const q = document.getElementById('t-qty').value; const p = document.getElementById('t-price').value; if(q && p) document.getElementById('t-value').value = (q * p).toFixed(2); }
         function evalExcel(e, input) { if(input.value.startsWith('=')) try { input.value = eval(input.value.substring(1)); } catch { alert("Error"); } }
-        
+        function toggleAllTicks(m) { document.querySelectorAll('.trade-tick').forEach(cb => cb.checked = m.checked); }
         function secureReset() {
-            if (db.settings.passOn && db.settings.pass !== "") {
-                const passCheck = prompt("Security Confirmation: Please enter your password to perform a Factory Reset:");
-                if (passCheck === null) return; 
-                if (passCheck !== db.settings.pass) {
-                    alert("Incorrect password! Reset aborted for security.");
-                    return;
-                }
-            }
-
-            if(confirm("WIPE ALL DATA: Are you sure you want to delete all trades, companies, and settings? This cannot be undone.")) {
-                if(confirm("FINAL CONFIRMATION: Are you ABSOLUTELY certain? All your stored data will be permanently erased.")) {
-                    localStorage.clear(); 
-                    // ADDED: If deleting local data, also offer to delete cloud backup if linked
-                    if(gapiAccessToken && driveFileId && confirm("Do you also want to delete the Cloud Backup on your Google Drive?")) {
-                         fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}`, {
-                            method: 'DELETE',
-                            headers: { Authorization: `Bearer ${gapiAccessToken}` }
-                        }).then(() => location.reload());
-                    } else {
-                        location.reload();
-                    }
-                }
-            }
+            if (db.settings.passOn && db.settings.pass !== "") { if (prompt("Enter Password:") !== db.settings.pass) return alert("Wrong!"); }
+            if(confirm("Wipe data?")) { localStorage.clear(); if(gapiAccessToken && driveFileId && confirm("Wipe Cloud?")) { fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${gapiAccessToken}` } }).then(() => location.reload()); } else location.reload(); }
         }
     </script>
 </body>
