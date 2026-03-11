@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MY PORTFOLIO - SECURE PRO</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <style>
+        :root {
+            --primary: #2c3e50; --accent: #3498db; --success: #27ae60; --danger: #e74c3c;
+            --bg: #f5f6fa; --card: #ffffff; --text: #2f3640; --border: #dfe6e9;
+            --overlay: rgba(245, 246, 250, 0.9);
+        }
+        .dark-theme {
+            --primary: #1e272e; --accent: #00d2d3; --success: #1dd1a1; --danger: #ff6b6b;
+            --bg: #121212; --card: #1e1e1e; --text: #f5f6fa; --border: #333;
+            --overlay: rgba(18, 18, 18, 0.9);
+        }
+
+        body {
+            margin: 0; font-family: 'Inter', 'Segoe UI', sans-serif; background: var(--bg); color: var(--text);
+            transition: 0.3s; background-size: cover !important; background-position: center !important;
+            background-attachment: fixed !important; min-height: 100vh;
+        }
+
+        #login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--overlay); backdrop-filter: blur(15px);
+            display: flex; align-items: center; justify-content: center; z-index: 9999;
+        }
+        .login-card {
+            background: var(--card); padding: 40px; border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2); width: 90%; max-width: 380px; text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        #app-container { display: none; }
+
+        header {
+            background: var(--primary); color: white; padding: 12px 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .master-bar { display: flex; gap: 8px; flex-wrap: wrap;}
+        .master-bar button {
+            background: rgba(255,255,255,0.1); border: none; color: white;
+            padding: 8px 14px; border-radius: 8px; cursor: pointer; transition: 0.2s; font-size: 13px;
+        }
+        .master-bar button:hover { background: rgba(255,255,255,0.2); }
+
+        .container { max-width: 900px; margin: 30px auto; padding: 0 20px; }
+        .card { background: var(--card); padding: 25px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 20px; }
+
+        input, select, textarea {
+            width: 100%; padding: 12px; margin: 8px 0; border: 1px solid var(--border);
+            border-radius: 10px; background: var(--bg); color: var(--text); font-size: 14px; box-sizing: border-box;
+        }
+
+        .btn-main { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; transition: 0.3s; width: 100%;}
+        .btn-main:hover { filter: brightness(1.1); }
+
+        .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid var(--border); }
+        .settings-row:last-child { border-bottom: none; }
+        .settings-label { font-weight: 600; font-size: 15px; }
+        .settings-desc { font-size: 12px; color: #7f8c8d; margin-top: 2px; }
+
+        .switch { position: relative; display: inline-block; width: 46px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--success); }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2000; overflow-y: auto; }
+        .modal-content { background: var(--card); margin: 40px auto; padding: 30px; width: 95%; max-width: 1100px; border-radius: 20px; position: relative; }
+        .close-x { position: absolute; right: 20px; top: 15px; font-size: 24px; cursor: pointer; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; border-radius: 8px; overflow: hidden; font-size: 12px; }
+        th { background: var(--primary); color: white; padding: 10px; text-align: left; }
+        td { padding: 10px; border-bottom: 1px solid var(--border); }
+
+        #theme-btn { position: fixed; bottom: 30px; left: 30px; z-index: 1100; background: var(--card); border: 1px solid var(--border); padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .hidden { display: none; }
+        .action-btn { width: auto; padding: 8px 15px; font-size: 12px; display: inline-block; }
+        
+        .abstract-controls {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: var(--bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border); flex-wrap: wrap; gap: 10px;
+        }
+        .row-actions button { margin-right: 5px; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 11px; color: white; }
+        .edit-btn { background: var(--accent); }
+        .del-btn { background: var(--danger); }
+    </style>
+</head>
+<body class="light-theme">
+
+    <div id="login-overlay" style="display: none;">
+        <div class="login-card">
+            <h2 style="margin:0 0 10px 0;">Portfolio Vault</h2>
+            <p style="margin-bottom:25px; color:#7f8c8d;">Enter password to continue</p>
+            <input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter') validateLogin()" style="text-align:center; letter-spacing: 5px;">
+            <button class="btn-main" onclick="validateLogin()">Unlock</button>
+            <p id="login-msg" style="color: var(--danger); margin-top: 15px; font-size: 13px; font-weight:600;"></p>
+        </div>
+    </div>
+
+    <div id="app-container">
+        <header>
+            <div>
+                <div id="disp-name" style="font-weight: 700; font-size: 18px; letter-spacing: -0.5px;">MY PORTFOLIO</div>
+                <div id="disp-demat" style="font-size: 11px; opacity: 0.7;">Secured Management <span id="sync-indicator"></span></div>
+            </div>
+            <div class="master-bar">
+                <button onclick="openModal('detailsModal')">👤 Accounts</button>
+                <button onclick="openModal('companyModal')">🏢 Companies</button>
+                <button onclick="openModal('portfolioModal')">📊 Assets</button>
+                <button onclick="openModal('abstractModal')">📜 History & Bulk</button>
+                <button onclick="openModal('settingsModal')">⚙️ Settings</button>
+            </div>
+        </header>
+
+        <div class="container">
+            <div class="card" id="trade-form-card">
+                <h3 id="form-title" style="margin:0 0 20px 0;">Trade Entry</h3>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                    <select id="t-type"><option value="BUY">BUY ORDER</option><option value="SELL">SELL ORDER</option></select>
+                    <select id="t-demat-select"><option value="">Select Account</option></select>
+                </div>
+                <input type="text" id="t-orderno" placeholder="Reference ID">
+                <input type="date" id="t-date">
+                <input type="text" id="t-company" list="co-list" placeholder="Company Name">
+                <datalist id="co-list"></datalist>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                    <input type="number" id="t-qty" placeholder="Units" oninput="calcTradeTotal()">
+                    <input type="number" id="t-price" placeholder="Price" oninput="calcTradeTotal()">
+                </div>
+                <input type="text" id="t-value" placeholder="Total Value" onblur="evalExcel(event, this)">
+                <input type="text" id="t-remarks" placeholder="Remarks / Notes">
+                <button class="btn-main" id="btn-save-trade" onclick="saveTrade()" style="margin-top:15px;">Save Transaction</button>
+                <button class="btn-main hidden" id="btn-cancel-edit" onclick="cancelTradeEdit()" style="margin-top:8px; background:#95a5a6;">Cancel Edit</button>
+            </div>
+        </div>
+
+        <div id="detailsModal" class="modal">
+            <div class="modal-content">
+                <span class="close-x" onclick="closeModal('detailsModal')">×</span>
+                <h2>Demat Accounts</h2>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <input type="text" id="u-broker" placeholder="Broker Name">
+                    <input type="text" id="u-acc" placeholder="Demat Number">
+                </div>
+                <button onclick="addDemat()" class="btn-main action-btn" style="margin-top:10px;">Add Account</button>
+                <table id="demat-table">
+                    <thead><tr><th>Broker</th><th>Demat No</th><th>Action</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="companyModal" class="modal">
+            <div class="modal-content">
+                <span class="close-x" onclick="closeModal('companyModal')">×</span>
+                <h2>Company Master</h2>
+                <div style="display:flex; gap:10px;">
+                    <input type="text" id="new-co" placeholder="Add New Company Name">
+                    <button onclick="addCo()" class="btn-main action-btn">Add</button>
+                </div>
+                <table id="co-table">
+                    <thead><tr><th>Company Name</th><th>Action</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="portfolioModal" class="modal">
+            <div class="modal-content">
+                <span class="close-x" onclick="closeModal('portfolioModal')">×</span>
+                <h2>Asset Portfolio</h2>
+                <div id="total-invest-val" style="font-size: 24px; font-weight: 800; color: var(--success); margin-bottom: 20px;">0.00</div>
+                <table id="p-table">
+                    <thead><tr><th>Company</th><th>Qty</th><th>Total Cost</th><th>Avg Price</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="abstractModal" class="modal">
+            <div class="modal-content">
+                <span class="close-x" onclick="closeModal('abstractModal')">×</span>
+                <h2>Trade Abstract & Bulk Actions</h2>
+                <div class="abstract-controls">
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-main action-btn" onclick="editSelectedTrade()">Edit Selected</button>
+                        <button class="btn-main action-btn" style="background:var(--danger);" onclick="deleteSelectedTrades()">Delete Selected</button>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-main action-btn" style="background:#1d6f42;" onclick="exportExcel('a-table', 'Trades')">Export Abstract</button>
+                        <button class="btn-main action-btn" style="background:#27ae60;" onclick="downloadTemplate()">Download Template</button>
+                        <div style="position: relative; overflow: hidden; display: inline-block;">
+                            <button class="btn-main action-btn" style="background:#f39c12; cursor:pointer;">Bulk Upload</button>
+                            <input type="file" id="bulk-upload-file" accept=".xlsx, .xls" onchange="handleBulkUpload(event)" style="position: absolute; top: 0; right: 0; min-width: 100%; min-height: 100%; font-size: 100px; text-align: right; opacity: 0; cursor: pointer;">
+                        </div>
+                    </div>
+                </div>
+                <table id="a-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 30px;"><input type="checkbox" id="master-tick" onclick="toggleAllTicks(this)"></th>
+                            <th>ID</th><th>Date</th><th>Type</th><th>Co</th><th>Qty</th><th>Price</th><th>Value</th><th>Demat</th><th>Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="autoAddModal" class="modal" style="z-index: 2500;">
+            <div class="modal-content" style="max-width: 500px;">
+                <h2 style="color: var(--danger);">Missing Masters</h2>
+                <div id="missing-list" style="background: var(--bg); padding: 15px; border-radius: 8px; margin-bottom: 15px; font-size: 13px;"></div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-main" style="background: var(--success);" onclick="proceedAutoAdd()">Auto Add & Upload</button>
+                    <button class="btn-main" style="background: var(--danger);" onclick="closeModal('autoAddModal')">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="settingsModal" class="modal">
+            <div class="modal-content">
+                <span class="close-x" onclick="closeModal('settingsModal')">×</span>
+                <h2>Control Panel</h2>
+                
+                <div class="card" style="padding:15px; background:transparent;">
+                    <div class="settings-row">
+                        <div>
+                            <div class="settings-label">Cloud Backup & Sync</div>
+                            <div class="settings-desc">Link Google Drive to sync data securely across devices (Uses hidden AppData Folder)</div>
+                        </div>
+                        <button id="btn-google-auth" class="btn-main action-btn" style="background:#4285F4; width:auto;" onclick="handleGoogleAuth()">Link Google Account</button>
+                    </div>
+                    <p id="sync-status" style="font-size:12px; color:var(--success); margin-top:5px; font-weight:600;"></p>
+                </div>
+
+                <div class="card" style="padding:15px; background:transparent;">
+                    <div class="settings-row">
+                        <div>
+                            <div class="settings-label">App Lock</div>
+                            <div class="settings-desc">Enable password protection on startup</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="s-pass-on" onchange="togglePassFields()">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div id="pass-fields" class="hidden" style="padding-top:10px;">
+                        <input type="password" id="new-pass" placeholder="Set New Password">
+                        <input type="password" id="conf-pass" placeholder="Confirm New Password">
+                        <div class="settings-row">
+                            <div>
+                                <div class="settings-label">Auto-Wipe Data</div>
+                                <div class="settings-desc">Erase all data after 10 failed login attempts</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="s-high-on">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="padding:15px; background:transparent;">
+                    <div class="settings-row">
+                        <div>
+                            <div class="settings-label">Appearance</div>
+                            <div class="settings-desc">Upload a custom wallpaper</div>
+                        </div>
+                        <input type="file" id="s-bg-file" accept="image/*" onchange="setBG()" style="width: auto; margin:0;">
+                    </div>
+                    <button onclick="removeBG()" style="background:none; border:none; color:var(--accent); cursor:pointer; font-size:12px; padding:0; margin-top:5px;">Remove Custom Image</button>
+                </div>
+
+                <button onclick="updateSettings()" class="btn-main" style="background:var(--success); margin-bottom: 10px;">Save Settings</button>
+                <button onclick="secureReset()" class="btn-main" style="background:var(--danger);">Factory Reset</button>
+            </div>
+        </div>
+
+        <button id="theme-btn" onclick="toggleTheme()">🌓</button>
+    </div>
+
+    <script>
+        // --- ADDED: GOOGLE DRIVE SYNC VARIABLES & LOGIC ---
+        // REPLACE THIS WITH YOUR ACTUAL CLIENT ID FROM GOOGLE CLOUD CONSOLE
+        const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com'; 
+        let tokenClient;
+        let gapiAccessToken = null;
+        let driveFileId = null;
+        let isSyncing = false;
+        const SYNC_FILE_NAME = 'mp_master_db.json';
+
+        // Initialize Google Identity Services
+        window.onload = () => {
+            // Load existing standard flow
+            initApp();
+            
+            // Init Google Token Client
+            if(window.google) {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: GOOGLE_CLIENT_ID,
+                    scope: 'https://www.googleapis.com/auth/drive.appdata',
+                    callback: async (tokenResponse) => {
+                        if (tokenResponse && tokenResponse.access_token) {
+                            gapiAccessToken = tokenResponse.access_token;
+                            document.getElementById('btn-google-auth').innerText = "Account Linked";
+                            document.getElementById('btn-google-auth').style.background = "var(--success)";
+                            await performInitialSync();
+                        }
+                    }
+                });
+            }
+        };
+
+        function handleGoogleAuth() {
+            if (!tokenClient) return alert("Google scripts failed to load. Check connection.");
+            tokenClient.requestAccessToken({ prompt: 'consent' });
+        }
+
+        async function performInitialSync() {
+            updateSyncStatus("Checking cloud backup...");
+            try {
+                // Search for existing file in hidden AppData folder
+                const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${SYNC_FILE_NAME}'`, {
+                    headers: { Authorization: `Bearer ${gapiAccessToken}` }
+                });
+                const searchData = await searchRes.json();
+                
+                if (searchData.files && searchData.files.length > 0) {
+                    driveFileId = searchData.files[0].id;
+                    updateSyncStatus("Downloading cloud data...");
+                    
+                    // Download file
+                    const dlRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
+                        headers: { Authorization: `Bearer ${gapiAccessToken}` }
+                    });
+                    const cloudDb = await dlRes.json();
+                    
+                    // Overwrite local with cloud (to satisfy "sync in new device" requirement)
+                    db = cloudDb;
+                    saveLocal(); 
+                    refresh();
+                    updateSyncStatus("Sync Complete ✅");
+                } else {
+                    // No cloud backup found, upload current local data to cloud
+                    updateSyncStatus("Creating cloud backup...");
+                    await uploadToDrive(true);
+                }
+            } catch (err) {
+                console.error(err);
+                updateSyncStatus("Sync failed. Check console.");
+            }
+        }
+
+        async function uploadToDrive(isNew = false) {
+            if (!gapiAccessToken) return;
+            isSyncing = true;
+            updateSyncStatus("Syncing to cloud...");
+            
+            const fileContent = JSON.stringify(db);
+            const metadata = { name: SYNC_FILE_NAME, parents: ['appDataFolder'] };
+
+            try {
+                let url, method, body;
+                
+                if (isNew || !driveFileId) {
+                    // Create new file (Multipart upload)
+                    url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+                    method = 'POST';
+                    const boundary = '-------314159265358979323846';
+                    const delimiter = "\r\n--" + boundary + "\r\n";
+                    const close_delim = "\r\n--" + boundary + "--";
+
+                    body = delimiter +
+                        'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) +
+                        delimiter +
+                        'Content-Type: application/json\r\n\r\n' + fileContent +
+                        close_delim;
+                        
+                    const res = await fetch(url, {
+                        method: method,
+                        headers: {
+                            Authorization: `Bearer ${gapiAccessToken}`,
+                            'Content-Type': `multipart/related; boundary=${boundary}`
+                        },
+                        body: body
+                    });
+                    const data = await res.json();
+                    driveFileId = data.id;
+                } else {
+                    // Update existing file
+                    url = `https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`;
+                    method = 'PATCH';
+                    await fetch(url, {
+                        method: method,
+                        headers: { Authorization: `Bearer ${gapiAccessToken}`, 'Content-Type': 'application/json' },
+                        body: fileContent
+                    });
+                }
+                updateSyncStatus("Cloud Sync Active ✅");
+            } catch (e) {
+                console.error("Upload error:", e);
+                updateSyncStatus("Sync error");
+            } finally {
+                isSyncing = false;
+            }
+        }
+
+        function updateSyncStatus(msg) {
+            document.getElementById('sync-status').innerText = msg;
+            document.getElementById('sync-indicator').innerText = gapiAccessToken ? `(☁️ ${msg})` : "";
+        }
+
+        // --- END OF GOOGLE DRIVE LOGIC ---
+
+        let db = JSON.parse(localStorage.getItem('mp_master_db')) || {
+            user: { name: "MY PORTFOLIO", demats: [] },
+            cos: [],
+            trades: [],
+            settings: { theme: 'light', passOn: false, pass: '', highOn: false, attempts: 0, locked: false, bg: '' }
+        };
+
+        let editingTradeIndex = -1;
+        let pendingBulkTrades = [];
+        let missingCos = new Set();
+        let missingDemats = new Set();
+
+        // MODIFIED: Original save function now saves locally AND triggers Google Drive upload if linked
+        const saveLocal = () => localStorage.setItem('mp_master_db', JSON.stringify(db));
+        
+        let syncTimeout;
+        const save = () => {
+            saveLocal();
+            // Debounce the drive upload so it doesn't spam the API on quick edits
+            if (gapiAccessToken) {
+                clearTimeout(syncTimeout);
+                syncTimeout = setTimeout(() => { uploadToDrive(false); }, 2000); 
+            }
+        };
+
+        // Extracted original onload logic into a named function
+        function initApp() {
+            if(db.settings.locked) { document.body.innerHTML = "<h1 style='color:red; text-align:center; padding-top:100px;'>SYSTEM LOCKED</h1>"; return; }
+            document.getElementById('s-pass-on').checked = db.settings.passOn;
+            document.getElementById('s-high-on').checked = db.settings.highOn || false;
+            if(db.settings.passOn) document.getElementById('pass-fields').classList.remove('hidden');
+            
+            if(db.settings.bg) document.body.style.backgroundImage = `url(${db.settings.bg})`;
+            applyTheme(db.settings.theme);
+            
+            if(db.settings.passOn && db.settings.pass !== "") showLogin();
+            else showApp();
+            
+            refresh();
+        }
+
+        function showLogin() { document.getElementById('login-overlay').style.display = 'flex'; document.getElementById('app-container').style.display = 'none'; }
+        function showApp() { document.getElementById('login-overlay').style.display = 'none'; document.getElementById('app-container').style.display = 'block'; }
+
+        function validateLogin() {
+            if(document.getElementById('login-pass').value === db.settings.pass) {
+                db.settings.attempts = 0; save(); showApp();
+            } else {
+                db.settings.attempts++;
+                if(db.settings.highOn && db.settings.attempts >= 10) { db.settings.locked = true; save(); location.reload(); }
+                else document.getElementById('login-msg').innerText = `Incorrect (${db.settings.attempts}/10)`;
+            }
+        }
+
+        function updateSettings() {
+            const turnOn = document.getElementById('s-pass-on').checked;
+            const nP = document.getElementById('new-pass').value;
+            const cP = document.getElementById('conf-pass').value;
+            if(turnOn && db.settings.pass === "" && nP === "") return alert("Please set a password!");
+            if(nP !== "" && nP !== cP) return alert("Passwords do not match!");
+            if(nP !== "") db.settings.pass = nP;
+            db.settings.passOn = turnOn;
+            db.settings.highOn = document.getElementById('s-high-on').checked;
+            save(); alert("Settings Updated");
+        }
+
+        function togglePassFields() { document.getElementById('pass-fields').classList.toggle('hidden', !document.getElementById('s-pass-on').checked); }
+
+        function setBG() {
+            const file = document.getElementById('s-bg-file').files[0];
+            const reader = new FileReader();
+            reader.onload = e => {
+                db.settings.bg = e.target.result;
+                document.body.style.backgroundImage = `url(${e.target.result})`;
+                save();
+            };
+            if(file) reader.readAsDataURL(file);
+        }
+
+        function removeBG() {
+            db.settings.bg = '';
+            document.body.style.backgroundImage = '';
+            save();
+            document.getElementById('s-bg-file').value = "";
+        }
+
+        function refresh() {
+            const dHtml = db.user.demats.map(d => `<option value="${d.acc}">${d.acc}</option>`).join('');
+            document.getElementById('t-demat-select').innerHTML = '<option value="">Select Account</option>' + dHtml;
+            document.getElementById('co-list').innerHTML = db.cos.map(c => `<option value="${c}">`).join('');
+            renderTables();
+        }
+
+        function renderTables() {
+            document.querySelector('#a-table tbody').innerHTML = db.trades.map((t, i) => `
+                <tr>
+                    <td><input type="checkbox" class="trade-tick" data-index="${i}"></td>
+                    <td>${t.order || '-'}</td><td>${t.date}</td><td>${t.type}</td><td>${t.co}</td><td>${t.qty}</td>
+                    <td>${(t.price || 0).toFixed(2)}</td><td>${t.val}</td><td>${t.demat}</td><td>${t.remarks || ''}</td>
+                </tr>`).join('');
+            
+            const hold = {};
+            let totalInvest = 0;
+            db.trades.forEach(t => {
+                if(!hold[t.co]) hold[t.co] = { qty: 0, cost: 0 };
+                if(t.type === 'BUY') { 
+                    hold[t.co].qty += t.qty; 
+                    hold[t.co].cost += t.val; 
+                } else if (t.type === 'SELL') { 
+                    hold[t.co].qty -= t.qty; 
+                    hold[t.co].cost -= t.val; 
+                }
+            });
+            
+            let pRows = "";
+            Object.keys(hold).forEach(c => {
+                if(hold[c].qty > 0) {
+                    totalInvest += hold[c].cost;
+                    let avgPrice = hold[c].cost / hold[c].qty;
+                    pRows += `<tr><td>${c}</td><td>${hold[c].qty}</td><td>${hold[c].cost.toFixed(2)}</td><td>${avgPrice.toFixed(2)}</td></tr>`;
+                }
+            });
+            document.querySelector('#p-table tbody').innerHTML = pRows;
+            document.getElementById('total-invest-val').innerText = "Total Invested: " + totalInvest.toLocaleString('en-IN', {minimumFractionDigits:2});
+
+            document.querySelector('#demat-table tbody').innerHTML = db.user.demats.map((d, i) => `<tr><td>${d.broker}</td><td>${d.acc}</td><td><button onclick="delDemat(${i})" class="del-btn">Del</button></td></tr>`).join('');
+            document.querySelector('#co-table tbody').innerHTML = db.cos.map((c, i) => `<tr><td>${c}</td><td class="row-actions"><button class="edit-btn" onclick="editCo(${i})">Edit</button><button class="del-btn" onclick="delCo(${i})">Del</button></td></tr>`).join('');
+        }
+
+        function toggleAllTicks(master) { document.querySelectorAll('.trade-tick').forEach(cb => cb.checked = master.checked); }
+        function getSelectedIndices() { return Array.from(document.querySelectorAll('.trade-tick:checked')).map(cb => parseInt(cb.dataset.index)); }
+
+        function saveTrade() {
+            const t = {
+                type: document.getElementById('t-type').value, demat: document.getElementById('t-demat-select').value,
+                order: document.getElementById('t-orderno').value, date: document.getElementById('t-date').value,
+                co: document.getElementById('t-company').value, qty: parseFloat(document.getElementById('t-qty').value) || 0,
+                price: parseFloat(document.getElementById('t-price').value) || 0, val: parseFloat(document.getElementById('t-value').value) || 0,
+                remarks: document.getElementById('t-remarks').value
+            };
+            if(!t.demat || !t.co || t.qty <= 0) return alert("Fill details.");
+            if(editingTradeIndex > -1) db.trades[editingTradeIndex] = t;
+            else db.trades.push(t);
+            cancelTradeEdit(); save(); refresh(); alert("Saved");
+        }
+
+        function editSelectedTrade() {
+            const selected = getSelectedIndices();
+            if(selected.length !== 1) return alert("Select exactly one trade to edit.");
+            const i = selected[0]; const t = db.trades[i]; editingTradeIndex = i;
+            document.getElementById('t-type').value = t.type;
+            document.getElementById('t-demat-select').value = t.demat;
+            document.getElementById('t-orderno').value = t.order;
+            document.getElementById('t-date').value = t.date;
+            document.getElementById('t-company').value = t.co;
+            document.getElementById('t-qty').value = t.qty;
+            document.getElementById('t-price').value = t.price;
+            document.getElementById('t-value').value = t.val;
+            document.getElementById('t-remarks').value = t.remarks || '';
+            document.getElementById('form-title').innerText = "Edit Trade Entry";
+            document.getElementById('btn-save-trade').innerText = "Update Transaction";
+            document.getElementById('btn-cancel-edit').classList.remove('hidden');
+            closeModal('abstractModal');
+            window.scrollTo(0, 0);
+        }
+
+        function deleteSelectedTrades() {
+            const selected = getSelectedIndices().sort((a,b) => b-a);
+            if(selected.length === 0) return alert("None selected.");
+            if(confirm(`Delete ${selected.length} trade(s)?`)) { selected.forEach(i => db.trades.splice(i, 1)); save(); refresh(); }
+        }
+
+        function cancelTradeEdit() {
+            editingTradeIndex = -1;
+            document.getElementById('form-title').innerText = "Trade Entry";
+            document.getElementById('btn-save-trade').innerText = "Save Transaction";
+            document.getElementById('btn-cancel-edit').classList.add('hidden');
+            document.querySelectorAll('#trade-form-card input').forEach(i => i.value = '');
+        }
+
+        function addCo() { const c = document.getElementById('new-co').value; if(c) { db.cos.push(c); save(); refresh(); document.getElementById('new-co').value=''; } }
+        function editCo(i) { const newVal = prompt("Edit Company:", db.cos[i]); if(newVal) { db.cos[i] = newVal; save(); refresh(); } }
+        function delCo(i) { if(confirm("Delete company?")) { db.cos.splice(i,1); save(); refresh(); } }
+
+        function addDemat() { 
+            const b = document.getElementById('u-broker').value; const a = document.getElementById('u-acc').value; 
+            if(b && a) { db.user.demats.push({broker: b, acc: a}); save(); refresh(); document.getElementById('u-broker').value=''; document.getElementById('u-acc').value=''; } 
+        }
+        function delDemat(i) { db.user.demats.splice(i,1); save(); refresh(); }
+
+        function downloadTemplate() {
+            const ws = XLSX.utils.json_to_sheet([{Order: "", Date: "YYYY-MM-DD", Type: "BUY/SELL", Company: "", Qty: "", Price: "", Value: "", Demat: "", Remarks: ""}]);
+            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Template"); XLSX.writeFile(wb, "Trade_Template.xlsx");
+        }
+
+        function handleBulkUpload(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                pendingBulkTrades = rows; missingCos.clear(); missingDemats.clear();
+                rows.forEach(r => {
+                    if (r.Company && !db.cos.includes(r.Company)) missingCos.add(r.Company);
+                    if (r.Demat && !db.user.demats.some(d => d.acc == r.Demat)) missingDemats.add(r.Demat);
+                });
+                if (missingCos.size > 0 || missingDemats.size > 0) {
+                    let h = "Missing:";
+                    if(missingCos.size > 0) h += `<br>Co: ${Array.from(missingCos).join(', ')}`;
+                    if(missingDemats.size > 0) h += `<br>Demat: ${Array.from(missingDemats).join(', ')}`;
+                    document.getElementById('missing-list').innerHTML = h;
+                    openModal('autoAddModal');
+                } else processPending();
+                event.target.value = "";
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function proceedAutoAdd() {
+            missingCos.forEach(c => db.cos.push(c));
+            missingDemats.forEach(d => db.user.demats.push({broker: "Added", acc: d.toString()}));
+            closeModal('autoAddModal'); processPending();
+        }
+
+        function processPending() {
+            pendingBulkTrades.forEach(r => {
+                if(!r.Company || !r.Demat) return;
+                db.trades.push({
+                    type: (r.Type || 'BUY').toUpperCase(), demat: r.Demat.toString(), order: r.Order || "",
+                    date: r.Date || "", co: r.Company, qty: parseFloat(r.Qty) || 0,
+                    price: parseFloat(r.Price) || 0, val: parseFloat(r.Value) || 0, remarks: r.Remarks || ""
+                });
+            });
+            save(); refresh(); alert("Uploaded");
+        }
+
+        function exportExcel(tid, name) { const wb = XLSX.utils.table_to_book(document.getElementById(tid)); XLSX.writeFile(wb, `${name}_Report.xlsx`); }
+        function toggleTheme() { db.settings.theme = db.settings.theme === 'light' ? 'dark' : 'light'; applyTheme(db.settings.theme); save(); }
+        function applyTheme(t) { document.body.className = t + '-theme'; }
+        function openModal(id) { document.getElementById(id).style.display = 'block'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        function calcTradeTotal() { const q = document.getElementById('t-qty').value; const p = document.getElementById('t-price').value; if(q && p) document.getElementById('t-value').value = (q * p).toFixed(2); }
+        function evalExcel(e, input) { if(input.value.startsWith('=')) try { input.value = eval(input.value.substring(1)); } catch { alert("Error"); } }
+        
+        function secureReset() {
+            if (db.settings.passOn && db.settings.pass !== "") {
+                const passCheck = prompt("Security Confirmation: Please enter your password to perform a Factory Reset:");
+                if (passCheck === null) return; 
+                if (passCheck !== db.settings.pass) {
+                    alert("Incorrect password! Reset aborted for security.");
+                    return;
+                }
+            }
+
+            if(confirm("WIPE ALL DATA: Are you sure you want to delete all trades, companies, and settings? This cannot be undone.")) {
+                if(confirm("FINAL CONFIRMATION: Are you ABSOLUTELY certain? All your stored data will be permanently erased.")) {
+                    localStorage.clear(); 
+                    // ADDED: If deleting local data, also offer to delete cloud backup if linked
+                    if(gapiAccessToken && driveFileId && confirm("Do you also want to delete the Cloud Backup on your Google Drive?")) {
+                         fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}`, {
+                            method: 'DELETE',
+                            headers: { Authorization: `Bearer ${gapiAccessToken}` }
+                        }).then(() => location.reload());
+                    } else {
+                        location.reload();
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
