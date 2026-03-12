@@ -118,6 +118,7 @@
                 <div id="last-sync-display" style="font-size: 10px; opacity: 0.8; margin-top: 2px;"></div>
             </div>
             <div class="master-bar">
+                <button id="btn-manual-restore" class="hidden" onclick="manualRestore()" style="background:#f39c12;">☁️ Restore</button>
                 <button id="btn-manual-sync" class="hidden" onclick="manualSync()" style="background:var(--success);">🔄 Sync Now</button>
                 <button onclick="openModal('detailsModal')">👤 Accounts</button>
                 <button onclick="openModal('companyModal')">🏢 Companies</button>
@@ -302,6 +303,7 @@
                             document.getElementById('btn-google-auth').innerText = "Account Linked";
                             document.getElementById('btn-google-auth').style.background = "var(--success)";
                             document.getElementById('btn-manual-sync').classList.remove('hidden');
+                            document.getElementById('btn-manual-restore').classList.remove('hidden');
                             await performInitialSync();
                         }
                     }
@@ -376,6 +378,50 @@
             btn.innerText = "Syncing...";
             await uploadToDrive(false);
             btn.innerText = "🔄 Sync Now";
+        }
+
+        async function manualRestore() {
+            if (!gapiAccessToken) return alert("Please link your Google Account first.");
+            
+            const btn = document.getElementById('btn-manual-restore');
+            btn.innerText = "Restoring...";
+            updateSyncStatus("Fetching Cloud...");
+
+            try {
+                const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${SYNC_FILE_NAME}'`, {
+                    headers: { Authorization: `Bearer ${gapiAccessToken}` }
+                });
+                const searchData = await searchRes.json();
+
+                if (searchData.files && searchData.files.length > 0) {
+                    driveFileId = searchData.files[0].id;
+                    const dlRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
+                        headers: { Authorization: `Bearer ${gapiAccessToken}` }
+                    });
+                    
+                    const cloudDb = await dlRes.json();
+                    
+                    if (cloudDb && cloudDb.settings) {
+                        db = cloudDb;
+                        saveLocal();
+                        applyTheme(db.settings.theme);
+                        if (db.settings.bg) document.body.style.backgroundImage = `url(${db.settings.bg})`;
+                        else document.body.style.backgroundImage = '';
+                        refresh();
+                        updateSyncStatus("Data Restored Successfully ✅");
+                        alert("Data successfully restored from Google Cloud!");
+                    }
+                } else {
+                    updateSyncStatus("No Cloud Backup Found");
+                    alert("No backup found in Google Drive.");
+                }
+            } catch (err) {
+                console.error(err);
+                updateSyncStatus("Restore failed");
+                alert("Failed to restore data.");
+            } finally {
+                btn.innerText = "☁️ Restore";
+            }
         }
 
         async function confirmExit() {
