@@ -118,7 +118,7 @@
                 <div id="last-sync-display" style="font-size: 10px; opacity: 0.8; margin-top: 2px;"></div>
             </div>
             <div class="master-bar">
-                <button id="btn-manual-restore" class="hidden" onclick="manualRestore()" style="background:#f39c12;">☁️ Restore</button>
+                <button id="btn-manual-restore" class="hidden" onclick="manualRestore()" style="background:#e67e22;">☁️ Restore</button>
                 <button id="btn-manual-sync" class="hidden" onclick="manualSync()" style="background:var(--success);">🔄 Sync Now</button>
                 <button onclick="openModal('detailsModal')">👤 Accounts</button>
                 <button onclick="openModal('companyModal')">🏢 Companies</button>
@@ -273,7 +273,6 @@
         let driveFileId = null;
         const SYNC_FILE_NAME = 'mp_master_db.json';
 
-        // History API Initialization for Step-by-Step Back
         window.addEventListener('load', () => {
             history.pushState({ page: 'root' }, document.title, location.href);
         });
@@ -283,11 +282,11 @@
             const openModalDiv = modals.reverse().find(m => m.style.display === 'block' && m.id !== 'exitModal');
             
             if (openModalDiv) {
-                openModalDiv.style.display = 'none'; // Step back: close top modal
-                history.pushState({ page: 'root' }, document.title, location.href); // trap back again
+                openModalDiv.style.display = 'none';
+                history.pushState({ page: 'root' }, document.title, location.href);
             } else if (document.getElementById('exitModal').style.display !== 'block') {
-                document.getElementById('exitModal').style.display = 'block'; // Root level: confirm exit
-                history.pushState({ page: 'exit' }, document.title, location.href); // trap back again
+                document.getElementById('exitModal').style.display = 'block';
+                history.pushState({ page: 'exit' }, document.title, location.href);
             }
         });
 
@@ -303,6 +302,7 @@
                             document.getElementById('btn-google-auth').innerText = "Account Linked";
                             document.getElementById('btn-google-auth').style.background = "var(--success)";
                             document.getElementById('btn-manual-sync').classList.remove('hidden');
+                            // Show the Restore button when logged in
                             document.getElementById('btn-manual-restore').classList.remove('hidden');
                             await performInitialSync();
                         }
@@ -380,14 +380,17 @@
             btn.innerText = "🔄 Sync Now";
         }
 
+        // New Forced Restore Function
         async function manualRestore() {
             if (!gapiAccessToken) return alert("Please link your Google Account first.");
             
             const btn = document.getElementById('btn-manual-restore');
-            btn.innerText = "Restoring...";
-            updateSyncStatus("Fetching Cloud...");
+            const originalText = btn.innerText;
+            btn.innerText = "Fetching Cloud...";
+            updateSyncStatus("Restoring from Cloud...");
 
             try {
+                // 1. Search for the file in App Data folder
                 const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${SYNC_FILE_NAME}'`, {
                     headers: { Authorization: `Bearer ${gapiAccessToken}` }
                 });
@@ -395,32 +398,42 @@
 
                 if (searchData.files && searchData.files.length > 0) {
                     driveFileId = searchData.files[0].id;
+                    
+                    // 2. Fetch the file content
                     const dlRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
                         headers: { Authorization: `Bearer ${gapiAccessToken}` }
                     });
                     
                     const cloudDb = await dlRes.json();
                     
+                    // 3. Overwrite the application data
                     if (cloudDb && cloudDb.settings) {
                         db = cloudDb;
-                        saveLocal();
+                        saveLocal(); // Save cloud data to LocalStorage
+                        
+                        // 4. Update UI settings immediately
                         applyTheme(db.settings.theme);
                         if (db.settings.bg) document.body.style.backgroundImage = `url(${db.settings.bg})`;
                         else document.body.style.backgroundImage = '';
+                        
+                        // 5. Refresh all tables and lists
                         refresh();
-                        updateSyncStatus("Data Restored Successfully ✅");
-                        alert("Data successfully restored from Google Cloud!");
+                        
+                        updateSyncStatus("Data Restored ✅");
+                        alert("Success: All data restored from Google Cloud!");
+                    } else {
+                        throw new Error("Invalid Cloud Data Format");
                     }
                 } else {
                     updateSyncStatus("No Cloud Backup Found");
-                    alert("No backup found in Google Drive.");
+                    alert("Error: No backup file found in your Google Drive App Data folder.");
                 }
             } catch (err) {
-                console.error(err);
+                console.error("Restore failed:", err);
                 updateSyncStatus("Restore failed");
-                alert("Failed to restore data.");
+                alert("Failed to restore data. Please check your connection or try again.");
             } finally {
-                btn.innerText = "☁️ Restore";
+                btn.innerText = originalText;
             }
         }
 
@@ -434,7 +447,6 @@
                 await uploadToDrive(false);
             }
             
-            // Exit logic standard across mobile web containers
             if (navigator.app && navigator.app.exitApp) {
                 navigator.app.exitApp();
             } else {
@@ -450,7 +462,6 @@
             document.getElementById('last-sync-display').innerText = db.settings.lastSyncTime ? `Last Sync: ${db.settings.lastSyncTime}` : '';
         }
 
-        // DATABASE AND CORE LOGIC
         let db = JSON.parse(localStorage.getItem('mp_master_db')) || {
             user: { name: "MY PORTFOLIO", demats: [] },
             cos: [],
@@ -464,11 +475,7 @@
         let missingDemats = new Set();
 
         const saveLocal = () => localStorage.setItem('mp_master_db', JSON.stringify(db));
-        
-        // Removed auto-sync timeout strictly for manual/exit sync requirement
-        const save = () => {
-            saveLocal();
-        };
+        const save = () => { saveLocal(); };
 
         function initApp() {
             if(db.settings.locked) { document.body.innerHTML = "<h1 style='color:red; text-align:center; padding-top:100px;'>SYSTEM LOCKED</h1>"; return; }
@@ -506,7 +513,7 @@
                 const confPass = prompt("Enter your current password to Disable App Lock:");
                 if (confPass !== db.settings.pass) {
                     alert("Incorrect Password. Action canceled.");
-                    document.getElementById('s-pass-on').checked = true; // Revert toggle
+                    document.getElementById('s-pass-on').checked = true;
                     return;
                 }
             }
