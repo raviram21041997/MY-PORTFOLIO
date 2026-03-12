@@ -1,71 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Portfolio | Google Login</title>
-    <style>
-        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #f4f4f9; }
-        #user-profile { margin-top: 20px; text-align: center; display: none; }
-        #user-profile img { border-radius: 50%; width: 100px; border: 3px solid #4285F4; }
-    </style>
-</head>
-<body>
-
-    <h2>Portfolio Login</h2>
-    
-    <div id="g_id_onload"
-         data-client_id="1082028242267-kjkiu17l71gdta83vhn4co80c43fksho.apps.googleusercontent.com"
-         data-callback="handleCredentialResponse"
-         data-auto_prompt="false">
-    </div>
-    <div class="g_id_signin" data-type="standard"></div>
-
-    <div id="user-profile">
-        <img id="user-pic" src="" alt="Profile Picture">
-        <h3 id="user-name"></h3>
-        <p id="user-email"></p>
-        <button onclick="logout()">Sign Out</button>
-    </div>
-
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-
-    <script>
-        // Function to decode the Google JWT Token
-        function parseJwt(token) {
-            var base64Url = token.split('.')[1];
-            var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            var jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
-                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-            }).join(''));
-            return JSON.parse(jsonPayload);
-        }
-
-        function handleCredentialResponse(response) {
-            // Decode the user data from the response
-            const responsePayload = parseJwt(response.credential);
-
-            // Hide the login button and show profile info
-            document.querySelector(".g_id_signin").style.display = "none";
-            const profile = document.getElementById("user-profile");
-            profile.style.display = "block";
-
-            // Update UI with user details
-            document.getElementById("user-name").innerText = "Welcome, " + responsePayload.name;
-            document.getElementById("user-email").innerText = responsePayload.email;
-            document.getElementById("user-pic").src = responsePayload.picture;
-        }
-
-        function logout() {
-            google.accounts.id.disableAutoSelect();
-            location.reload(); // Refresh the page to reset state
-        }
-    </script>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="en">
-<head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MY PORTFOLIO - SECURE PRO</title>
@@ -73,7 +8,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-    
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <style>
@@ -130,6 +64,7 @@
 
         .btn-main { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; transition: 0.3s; width: 100%;}
         .btn-main:hover { filter: brightness(1.1); }
+        .btn-main:disabled { background: #95a5a6; cursor: not-allowed; }
 
         .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid var(--border); }
         .settings-row:last-child { border-bottom: none; }
@@ -152,7 +87,7 @@
         td { padding: 10px; border-bottom: 1px solid var(--border); }
 
         #theme-btn { position: fixed; bottom: 30px; left: 30px; z-index: 1100; background: var(--card); border: 1px solid var(--border); padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .hidden { display: none; }
+        .hidden { display: none !important; }
         .action-btn { width: auto; padding: 8px 15px; font-size: 12px; display: inline-block; }
         
         .abstract-controls {
@@ -180,8 +115,10 @@
             <div>
                 <div id="disp-name" style="font-weight: 700; font-size: 18px; letter-spacing: -0.5px;">MY PORTFOLIO</div>
                 <div id="disp-demat" style="font-size: 11px; opacity: 0.7;">Secured Management <span id="sync-indicator"></span></div>
+                <div id="last-sync-display" style="font-size: 10px; opacity: 0.8; margin-top: 2px;"></div>
             </div>
             <div class="master-bar">
+                <button id="btn-manual-sync" class="hidden" onclick="manualSync()" style="background:var(--success);">🔄 Sync Now</button>
                 <button onclick="openModal('detailsModal')">👤 Accounts</button>
                 <button onclick="openModal('companyModal')">🏢 Companies</button>
                 <button onclick="openModal('portfolioModal')">📊 Assets</button>
@@ -212,49 +149,12 @@
             </div>
         </div>
 
-        <div id="detailsModal" class="modal">
-            <div class="modal-content">
-                <span class="close-x" onclick="closeModal('detailsModal')">×</span>
-                <h2>Demat Accounts</h2>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                    <input type="text" id="u-broker" placeholder="Broker Name">
-                    <input type="text" id="u-acc" placeholder="Demat Number">
-                </div>
-                <button onclick="addDemat()" class="btn-main action-btn" style="margin-top:10px;">Add Account</button>
-                <table id="demat-table">
-                    <thead><tr><th>Broker</th><th>Demat No</th><th>Action</th></tr></thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="companyModal" class="modal">
-            <div class="modal-content">
-                <span class="close-x" onclick="closeModal('companyModal')">×</span>
-                <h2>Company Master</h2>
-                <div style="display:flex; gap:10px;">
-                    <input type="text" id="new-co" placeholder="Add New Company Name">
-                    <button onclick="addCo()" class="btn-main action-btn">Add</button>
-                </div>
-                <table id="co-table">
-                    <thead><tr><th>Company Name</th><th>Action</th></tr></thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="portfolioModal" class="modal">
-            <div class="modal-content">
-                <span class="close-x" onclick="closeModal('portfolioModal')">×</span>
-                <h2>Asset Portfolio</h2>
-                <div id="total-invest-val" style="font-size: 24px; font-weight: 800; color: var(--success); margin-bottom: 20px;">0.00</div>
-                <table id="p-table">
-                    <thead><tr><th>Company</th><th>Qty</th><th>Total Cost</th><th>Avg Price</th></tr></thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </div>
-
+        <div id="detailsModal" class="modal"><div class="modal-content"><span class="close-x" onclick="closeModal('detailsModal')">×</span><h2>Demat Accounts</h2><div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;"><input type="text" id="u-broker" placeholder="Broker Name"><input type="text" id="u-acc" placeholder="Demat Number"></div><button onclick="addDemat()" class="btn-main action-btn" style="margin-top:10px;">Add Account</button><table id="demat-table"><thead><tr><th>Broker</th><th>Demat No</th><th>Action</th></tr></thead><tbody></tbody></table></div></div>
+        
+        <div id="companyModal" class="modal"><div class="modal-content"><span class="close-x" onclick="closeModal('companyModal')">×</span><h2>Company Master</h2><div style="display:flex; gap:10px;"><input type="text" id="new-co" placeholder="Add New Company Name"><button onclick="addCo()" class="btn-main action-btn">Add</button></div><table id="co-table"><thead><tr><th>Company Name</th><th>Action</th></tr></thead><tbody></tbody></table></div></div>
+        
+        <div id="portfolioModal" class="modal"><div class="modal-content"><span class="close-x" onclick="closeModal('portfolioModal')">×</span><h2>Asset Portfolio</h2><div id="total-invest-val" style="font-size: 24px; font-weight: 800; color: var(--success); margin-bottom: 20px;">0.00</div><table id="p-table"><thead><tr><th>Company</th><th>Qty</th><th>Total Cost</th><th>Avg Price</th></tr></thead><tbody></tbody></table></div></div>
+        
         <div id="abstractModal" class="modal">
             <div class="modal-content">
                 <span class="close-x" onclick="closeModal('abstractModal')">×</span>
@@ -274,12 +174,7 @@
                     </div>
                 </div>
                 <table id="a-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 30px;"><input type="checkbox" id="master-tick" onclick="toggleAllTicks(this)"></th>
-                            <th>ID</th><th>Date</th><th>Type</th><th>Co</th><th>Qty</th><th>Price</th><th>Value</th><th>Demat</th><th>Remarks</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th style="width: 30px;"><input type="checkbox" id="master-tick" onclick="toggleAllTicks(this)"></th><th>ID</th><th>Date</th><th>Type</th><th>Co</th><th>Qty</th><th>Price</th><th>Value</th><th>Demat</th><th>Remarks</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -305,7 +200,7 @@
                     <div class="settings-row">
                         <div>
                             <div class="settings-label">Cloud Backup & Sync</div>
-                            <div class="settings-desc">Link Google Drive to sync data securely across devices (Uses hidden AppData Folder)</div>
+                            <div class="settings-desc">Link Google Drive to sync data securely across devices</div>
                         </div>
                         <button id="btn-google-auth" class="btn-main action-btn" style="background:#4285F4; width:auto;" onclick="handleGoogleAuth()">Link Google Account</button>
                     </div>
@@ -324,6 +219,7 @@
                         </label>
                     </div>
                     <div id="pass-fields" class="hidden" style="padding-top:10px;">
+                        <input type="password" id="old-pass" placeholder="Current Password (To Change Existing)" class="hidden">
                         <input type="password" id="new-pass" placeholder="Set New Password">
                         <input type="password" id="conf-pass" placeholder="Confirm New Password">
                         <div class="settings-row">
@@ -355,6 +251,17 @@
             </div>
         </div>
 
+        <div id="exitModal" class="modal" style="z-index: 3000;">
+            <div class="modal-content" style="max-width: 400px; text-align: center;">
+                <h2 id="exit-title">Exit Application?</h2>
+                <p id="exit-desc" style="color: #7f8c8d; font-size: 14px;">All your data will be securely backed up to Google Cloud automatically before exiting.</p>
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                    <button id="btn-exit-confirm" class="btn-main" style="background: var(--danger);" onclick="confirmExit()">Exit</button>
+                    <button class="btn-main" style="background: #95a5a6;" onclick="closeModal('exitModal')">Cancel</button>
+                </div>
+            </div>
+        </div>
+
         <button id="theme-btn" onclick="toggleTheme()">🌓</button>
     </div>
 
@@ -363,8 +270,25 @@
         let tokenClient;
         let gapiAccessToken = null;
         let driveFileId = null;
-        let isSyncing = false;
         const SYNC_FILE_NAME = 'mp_master_db.json';
+
+        // History API Initialization for Step-by-Step Back
+        window.addEventListener('load', () => {
+            history.pushState({ page: 'root' }, document.title, location.href);
+        });
+
+        window.addEventListener('popstate', function (event) {
+            const modals = Array.from(document.querySelectorAll('.modal'));
+            const openModalDiv = modals.reverse().find(m => m.style.display === 'block' && m.id !== 'exitModal');
+            
+            if (openModalDiv) {
+                openModalDiv.style.display = 'none'; // Step back: close top modal
+                history.pushState({ page: 'root' }, document.title, location.href); // trap back again
+            } else if (document.getElementById('exitModal').style.display !== 'block') {
+                document.getElementById('exitModal').style.display = 'block'; // Root level: confirm exit
+                history.pushState({ page: 'exit' }, document.title, location.href); // trap back again
+            }
+        });
 
         window.onload = () => {
             initApp();
@@ -377,6 +301,7 @@
                             gapiAccessToken = resp.access_token;
                             document.getElementById('btn-google-auth').innerText = "Account Linked";
                             document.getElementById('btn-google-auth').style.background = "var(--success)";
+                            document.getElementById('btn-manual-sync').classList.remove('hidden');
                             await performInitialSync();
                         }
                     }
@@ -439,13 +364,44 @@
                         body: fileContent
                     });
                 }
+                db.settings.lastSyncTime = new Date().toLocaleString();
+                saveLocal();
                 updateSyncStatus("Cloud Sync Active ✅");
             } catch (e) { updateSyncStatus("Sync error"); }
         }
 
+        async function manualSync() {
+            if(!gapiAccessToken) return alert("Please link Google Account first.");
+            const btn = document.getElementById('btn-manual-sync');
+            btn.innerText = "Syncing...";
+            await uploadToDrive(false);
+            btn.innerText = "🔄 Sync Now";
+        }
+
+        async function confirmExit() {
+            const exitBtn = document.getElementById('btn-exit-confirm');
+            document.getElementById('exit-title').innerText = "Syncing & Exiting...";
+            document.getElementById('exit-desc').innerText = "Please wait, backing up data to Google Cloud...";
+            exitBtn.disabled = true;
+            
+            if (gapiAccessToken) {
+                await uploadToDrive(false);
+            }
+            
+            // Exit logic standard across mobile web containers
+            if (navigator.app && navigator.app.exitApp) {
+                navigator.app.exitApp();
+            } else {
+                document.body.innerHTML = "<h2 style='text-align:center; padding-top:30vh;'>Data Backed Up Safely ✅<br><br><span style='font-size:14px; color:#7f8c8d;'>You can now close this application screen.</span></h2>";
+                setTimeout(() => { window.close(); }, 500);
+            }
+        }
+
         function updateSyncStatus(msg) {
-            document.getElementById('sync-status').innerText = msg;
+            const timeStr = db.settings.lastSyncTime ? ` (Last: ${db.settings.lastSyncTime})` : '';
+            document.getElementById('sync-status').innerText = msg + timeStr;
             document.getElementById('sync-indicator').innerText = gapiAccessToken ? `(☁️ ${msg})` : "";
+            document.getElementById('last-sync-display').innerText = db.settings.lastSyncTime ? `Last Sync: ${db.settings.lastSyncTime}` : '';
         }
 
         // DATABASE AND CORE LOGIC
@@ -453,7 +409,7 @@
             user: { name: "MY PORTFOLIO", demats: [] },
             cos: [],
             trades: [],
-            settings: { theme: 'light', passOn: false, pass: '', highOn: false, attempts: 0, locked: false, bg: '' }
+            settings: { theme: 'light', passOn: false, pass: '', highOn: false, attempts: 0, locked: false, bg: '', lastSyncTime: '' }
         };
 
         let editingTradeIndex = -1;
@@ -463,22 +419,24 @@
 
         const saveLocal = () => localStorage.setItem('mp_master_db', JSON.stringify(db));
         
-        let syncTimeout;
+        // Removed auto-sync timeout strictly for manual/exit sync requirement
         const save = () => {
             saveLocal();
-            if (gapiAccessToken) {
-                clearTimeout(syncTimeout);
-                syncTimeout = setTimeout(() => { uploadToDrive(false); }, 2000); 
-            }
         };
 
         function initApp() {
             if(db.settings.locked) { document.body.innerHTML = "<h1 style='color:red; text-align:center; padding-top:100px;'>SYSTEM LOCKED</h1>"; return; }
             document.getElementById('s-pass-on').checked = db.settings.passOn;
             document.getElementById('s-high-on').checked = db.settings.highOn || false;
-            if(db.settings.passOn) document.getElementById('pass-fields').classList.remove('hidden');
+            
+            if(db.settings.passOn) {
+                document.getElementById('pass-fields').classList.remove('hidden');
+                if(db.settings.pass !== "") document.getElementById('old-pass').classList.remove('hidden');
+            }
+            
             if(db.settings.bg) document.body.style.backgroundImage = `url(${db.settings.bg})`;
             applyTheme(db.settings.theme);
+            if(db.settings.lastSyncTime) updateSyncStatus("Local Data Loaded");
             if(db.settings.passOn && db.settings.pass !== "") showLogin(); else showApp();
             refresh();
         }
@@ -496,19 +454,55 @@
             }
         }
 
-        function updateSettings() {
-            const turnOn = document.getElementById('s-pass-on').checked;
-            const nP = document.getElementById('new-pass').value;
-            const cP = document.getElementById('conf-pass').value;
-            if(turnOn && db.settings.pass === "" && nP === "") return alert("Set a password!");
-            if(nP !== "" && nP !== cP) return alert("Passwords do not match!");
-            if(nP !== "") db.settings.pass = nP;
-            db.settings.passOn = turnOn;
-            db.settings.highOn = document.getElementById('s-high-on').checked;
-            save(); alert("Settings Updated");
+        function togglePassFields() {
+            const isChecked = document.getElementById('s-pass-on').checked;
+            if (!isChecked && db.settings.pass !== "") {
+                const confPass = prompt("Enter your current password to Disable App Lock:");
+                if (confPass !== db.settings.pass) {
+                    alert("Incorrect Password. Action canceled.");
+                    document.getElementById('s-pass-on').checked = true; // Revert toggle
+                    return;
+                }
+            }
+            document.getElementById('pass-fields').classList.toggle('hidden', !document.getElementById('s-pass-on').checked);
+            if (document.getElementById('s-pass-on').checked && db.settings.pass !== "") {
+                document.getElementById('old-pass').classList.remove('hidden');
+            } else {
+                document.getElementById('old-pass').classList.add('hidden');
+            }
         }
 
-        function togglePassFields() { document.getElementById('pass-fields').classList.toggle('hidden', !document.getElementById('s-pass-on').checked); }
+        function updateSettings() {
+            const turnOn = document.getElementById('s-pass-on').checked;
+            const oP = document.getElementById('old-pass').value;
+            const nP = document.getElementById('new-pass').value;
+            const cP = document.getElementById('conf-pass').value;
+            
+            if(turnOn) {
+                if(db.settings.pass === "" && nP === "") return alert("Set a password!");
+                if(db.settings.pass !== "") { 
+                    if(nP !== "" || cP !== "") {
+                        if(oP !== db.settings.pass) return alert("Current password incorrect!");
+                        if(nP !== cP) return alert("New passwords do not match!");
+                        db.settings.pass = nP;
+                    }
+                } else {
+                    if(nP !== cP) return alert("Passwords do not match!");
+                    db.settings.pass = nP;
+                }
+            } else {
+                db.settings.pass = ""; 
+            }
+
+            db.settings.passOn = turnOn;
+            db.settings.highOn = document.getElementById('s-high-on').checked;
+            save(); 
+            document.getElementById('old-pass').value = '';
+            document.getElementById('new-pass').value = '';
+            document.getElementById('conf-pass').value = '';
+            togglePassFields();
+            alert("Settings Updated");
+        }
 
         function setBG() {
             const file = document.getElementById('s-bg-file').files[0];
@@ -552,7 +546,7 @@
             const t = { type: document.getElementById('t-type').value, demat: document.getElementById('t-demat-select').value, order: document.getElementById('t-orderno').value, date: document.getElementById('t-date').value, co: document.getElementById('t-company').value, qty: parseFloat(document.getElementById('t-qty').value) || 0, price: parseFloat(document.getElementById('t-price').value) || 0, val: parseFloat(document.getElementById('t-value').value) || 0, remarks: document.getElementById('t-remarks').value };
             if(!t.demat || !t.co || t.qty <= 0) return alert("Fill details.");
             if(editingTradeIndex > -1) db.trades[editingTradeIndex] = t; else db.trades.push(t);
-            cancelTradeEdit(); save(); refresh(); alert("Saved");
+            cancelTradeEdit(); save(); refresh(); alert("Saved locally. Click Sync Now to backup.");
         }
 
         function editSelectedTrade() {
@@ -594,14 +588,21 @@
         function exportExcel(tid, name) { XLSX.writeFile(XLSX.utils.table_to_book(document.getElementById(tid)), `${name}.xlsx`); }
         function toggleTheme() { db.settings.theme = db.settings.theme === 'light' ? 'dark' : 'light'; applyTheme(db.settings.theme); save(); }
         function applyTheme(t) { document.body.className = t + '-theme'; }
-        function openModal(id) { document.getElementById(id).style.display = 'block'; }
-        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        
+        function openModal(id) { 
+            document.getElementById(id).style.display = 'block'; 
+            history.pushState({ modalId: id }, "", ""); 
+        }
+        function closeModal(id) { 
+            document.getElementById(id).style.display = 'none'; 
+        }
+
         function calcTradeTotal() { const q = document.getElementById('t-qty').value; const p = document.getElementById('t-price').value; if(q && p) document.getElementById('t-value').value = (q * p).toFixed(2); }
         function evalExcel(e, input) { if(input.value.startsWith('=')) try { input.value = eval(input.value.substring(1)); } catch { alert("Error"); } }
         function toggleAllTicks(m) { document.querySelectorAll('.trade-tick').forEach(cb => cb.checked = m.checked); }
         function secureReset() {
-            if (db.settings.passOn && db.settings.pass !== "") { if (prompt("Enter Password:") !== db.settings.pass) return alert("Wrong!"); }
-            if(confirm("Wipe data?")) { localStorage.clear(); if(gapiAccessToken && driveFileId && confirm("Wipe Cloud?")) { fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${gapiAccessToken}` } }).then(() => location.reload()); } else location.reload(); }
+            if (db.settings.passOn && db.settings.pass !== "") { if (prompt("Enter Password to Factory Reset:") !== db.settings.pass) return alert("Incorrect Password!"); }
+            if(confirm("Wipe all local data?")) { localStorage.clear(); if(gapiAccessToken && driveFileId && confirm("Wipe Cloud Data permanently?")) { fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${gapiAccessToken}` } }).then(() => location.reload()); } else location.reload(); }
         }
     </script>
 </body>
