@@ -151,9 +151,7 @@
         </div>
 
         <div id="detailsModal" class="modal"><div class="modal-content"><span class="close-x" onclick="closeModal('detailsModal')">×</span><h2>Demat Accounts</h2><div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;"><input type="text" id="u-broker" placeholder="Broker Name"><input type="text" id="u-acc" placeholder="Demat Number"></div><button onclick="addDemat()" class="btn-main action-btn" style="margin-top:10px;">Add Account</button><table id="demat-table"><thead><tr><th>Broker</th><th>Demat No</th><th>Action</th></tr></thead><tbody></tbody></table></div></div>
-        
         <div id="companyModal" class="modal"><div class="modal-content"><span class="close-x" onclick="closeModal('companyModal')">×</span><h2>Company Master</h2><div style="display:flex; gap:10px;"><input type="text" id="new-co" placeholder="Add New Company Name"><button onclick="addCo()" class="btn-main action-btn">Add</button></div><table id="co-table"><thead><tr><th>Company Name</th><th>Action</th></tr></thead><tbody></tbody></table></div></div>
-        
         <div id="portfolioModal" class="modal"><div class="modal-content"><span class="close-x" onclick="closeModal('portfolioModal')">×</span><h2>Asset Portfolio</h2><div id="total-invest-val" style="font-size: 24px; font-weight: 800; color: var(--success); margin-bottom: 20px;">0.00</div><table id="p-table"><thead><tr><th>Company</th><th>Qty</th><th>Total Cost</th><th>Avg Price</th></tr></thead><tbody></tbody></table></div></div>
         
         <div id="abstractModal" class="modal">
@@ -273,6 +271,7 @@
         let driveFileId = null;
         const SYNC_FILE_NAME = 'mp_master_db.json';
 
+        // --- BROWSER BACK BUTTON LOGIC ---
         window.addEventListener('load', () => {
             history.pushState({ page: 'root' }, document.title, location.href);
         });
@@ -290,6 +289,7 @@
             }
         });
 
+        // --- GOOGLE DRIVE INTEGRATION ---
         window.onload = () => {
             initApp();
             if(window.google) {
@@ -339,7 +339,6 @@
             } catch (err) { updateSyncStatus("Sync failed"); }
         }
 
-        // --- IMPROVED UPLOAD LOGIC (FIX POINT 3) ---
         async function uploadToDrive(isNew = false) {
             if (!gapiAccessToken) return;
             const fileContent = JSON.stringify(db);
@@ -433,7 +432,7 @@
             } catch (err) {
                 console.error("Restore failed:", err);
                 updateSyncStatus("Restore failed");
-                alert("Failed to restore data. Please check your connection or try again.");
+                alert("Failed to restore data. Check connection and ensure API is enabled in Cloud Console.");
             } finally {
                 btn.innerText = originalText;
             }
@@ -464,6 +463,7 @@
             document.getElementById('last-sync-display').innerText = db.settings.lastSyncTime ? `Last Sync: ${db.settings.lastSyncTime}` : '';
         }
 
+        // --- CORE DATABASE ---
         let db = JSON.parse(localStorage.getItem('mp_master_db')) || {
             user: { name: "MY PORTFOLIO", demats: [] },
             cos: [],
@@ -479,6 +479,7 @@
         const saveLocal = () => localStorage.setItem('mp_master_db', JSON.stringify(db));
         const save = () => { saveLocal(); };
 
+        // --- APP INITIALIZATION ---
         function initApp() {
             if(db.settings.locked) { document.body.innerHTML = "<h1 style='color:red; text-align:center; padding-top:100px;'>SYSTEM LOCKED</h1>"; return; }
             document.getElementById('s-pass-on').checked = db.settings.passOn;
