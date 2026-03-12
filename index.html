@@ -302,7 +302,6 @@
                             document.getElementById('btn-google-auth').innerText = "Account Linked";
                             document.getElementById('btn-google-auth').style.background = "var(--success)";
                             document.getElementById('btn-manual-sync').classList.remove('hidden');
-                            // Show the Restore button when logged in
                             document.getElementById('btn-manual-restore').classList.remove('hidden');
                             await performInitialSync();
                         }
@@ -340,36 +339,49 @@
             } catch (err) { updateSyncStatus("Sync failed"); }
         }
 
+        // --- IMPROVED UPLOAD LOGIC (FIX POINT 3) ---
         async function uploadToDrive(isNew = false) {
             if (!gapiAccessToken) return;
             const fileContent = JSON.stringify(db);
             const metadata = { name: SYNC_FILE_NAME, parents: ['appDataFolder'] };
 
             try {
+                let res;
                 if (isNew || !driveFileId) {
                     const boundary = '-------314159';
                     const delimiter = "\r\n--" + boundary + "\r\n";
                     const close_delim = "\r\n--" + boundary + "--";
                     const body = delimiter + 'Content-Type: application/json\r\n\r\n' + JSON.stringify(metadata) + delimiter + 'Content-Type: application/json\r\n\r\n' + fileContent + close_delim;
                         
-                    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                    res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
                         method: 'POST',
                         headers: { Authorization: `Bearer ${gapiAccessToken}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
                         body: body
                     });
-                    const data = await res.json();
-                    driveFileId = data.id;
                 } else {
-                    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+                    res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
                         method: 'PATCH',
                         headers: { Authorization: `Bearer ${gapiAccessToken}`, 'Content-Type': 'application/json' },
                         body: fileContent
                     });
                 }
+
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    console.error("Google Drive API Error:", errorData);
+                    throw new Error(errorData.error.message);
+                }
+
+                const data = await res.json();
+                if (isNew || !driveFileId) driveFileId = data.id;
+                
                 db.settings.lastSyncTime = new Date().toLocaleString();
                 saveLocal();
                 updateSyncStatus("Cloud Sync Active ✅");
-            } catch (e) { updateSyncStatus("Sync error"); }
+            } catch (e) { 
+                console.error("Sync Process Failed:", e);
+                updateSyncStatus("Sync error: " + e.message); 
+            }
         }
 
         async function manualSync() {
@@ -380,7 +392,6 @@
             btn.innerText = "🔄 Sync Now";
         }
 
-        // New Forced Restore Function
         async function manualRestore() {
             if (!gapiAccessToken) return alert("Please link your Google Account first.");
             
@@ -390,7 +401,6 @@
             updateSyncStatus("Restoring from Cloud...");
 
             try {
-                // 1. Search for the file in App Data folder
                 const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${SYNC_FILE_NAME}'`, {
                     headers: { Authorization: `Bearer ${gapiAccessToken}` }
                 });
@@ -398,27 +408,19 @@
 
                 if (searchData.files && searchData.files.length > 0) {
                     driveFileId = searchData.files[0].id;
-                    
-                    // 2. Fetch the file content
                     const dlRes = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
                         headers: { Authorization: `Bearer ${gapiAccessToken}` }
                     });
                     
                     const cloudDb = await dlRes.json();
                     
-                    // 3. Overwrite the application data
                     if (cloudDb && cloudDb.settings) {
                         db = cloudDb;
-                        saveLocal(); // Save cloud data to LocalStorage
-                        
-                        // 4. Update UI settings immediately
+                        saveLocal(); 
                         applyTheme(db.settings.theme);
                         if (db.settings.bg) document.body.style.backgroundImage = `url(${db.settings.bg})`;
                         else document.body.style.backgroundImage = '';
-                        
-                        // 5. Refresh all tables and lists
                         refresh();
-                        
                         updateSyncStatus("Data Restored ✅");
                         alert("Success: All data restored from Google Cloud!");
                     } else {
